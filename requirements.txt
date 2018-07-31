@@ -1,0 +1,10 @@
+boto3
+botocore
+docutils
+jmespath
+mysql-connector-python
+protobuf
+psycopg2
+python-dateutil
+s3transfer
+six
