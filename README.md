@@ -12,3 +12,11 @@ imported into development environments.
   * `email-alert-api`
   * `publishing_api`
 
+## Inputs
+
+* RDS database cluster/instance
+* Source snapshot name (default: latest automatic)
+* Database credentials (should come from /root/.my.cnf)
+* AWS credentials (as per boto3)
+* Sharing details (AWS account(s), ...)
+
