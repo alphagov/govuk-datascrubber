@@ -82,7 +82,7 @@ class RdsSnapshotFinder:
                 )
 
                 for instance in rds_instances['DBInstances']:
-                    if instance['Endpoint']['Address'] == self.get_rds_endpoint_address():
+                    if 'Endpoint' in instance and instance['Endpoint']['Address'] == self.get_rds_endpoint_address():
                         logger.info(
                             "RDS instance %s matches endpoint address %s:%s",
                             instance['DBInstanceIdentifier'],
