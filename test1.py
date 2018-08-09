@@ -1,9 +1,7 @@
 # Temporary script for assisting in developing the classes
 # Starts an interactive Python shell at the end.
 
-from scrub_workspace_instance import ScrubWorkspaceInstance
-from snapshot_finder import RdsSnapshotFinder
-
+import datascrubber
 import logging
 import IPython
 import mysql.connector
@@ -21,11 +19,11 @@ logging.basicConfig(
 )
 
 # Create snapshot finders for both mysql and postgresql
-mysql_sf = RdsSnapshotFinder('mysql')
-postgresql_sf = RdsSnapshotFinder('postgresql')
+mysql_sf = datascrubber.RdsSnapshotFinder('mysql')
+postgresql_sf = datascrubber.RdsSnapshotFinder('postgresql')
 
 # Request a scrub workspace instance and exercise the code by calling get_endpoint().
-mysql_swi = ScrubWorkspaceInstance(mysql_sf)
+mysql_swi = datascrubber.ScrubWorkspaceInstance(mysql_sf)
 endpoint = mysql_swi.get_endpoint()
 
 logging.info("Got a new endpoint: %s", endpoint)
