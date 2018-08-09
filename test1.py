@@ -4,9 +4,10 @@
 from scrub_workspace_instance import ScrubWorkspaceInstance
 from snapshot_finder import RdsSnapshotFinder
 
-import socket
 import logging
 import IPython
+import mysql.connector
+import re
 
 # Logs to stderr with the given format string, excluding DEBUG messages.
 # The great thing about using this logging library is that we automatically
@@ -27,14 +28,23 @@ postgresql_sf = RdsSnapshotFinder('postgresql')
 mysql_swi = ScrubWorkspaceInstance(mysql_sf)
 endpoint = mysql_swi.get_endpoint()
 
-logging.info("Got a new endpoint", endpoint)
+logging.info("Got a new endpoint: %s", endpoint)
 
-try:
-    _ = socket.create_connection((endpoint['Address'], endpoint['Port']))
-except ConnectionRefusedError:
-    logging.error("Connection refused")
-except TimeoutError:
-    logging.error("Timed out")
+mysql_cnx = mysql.connector.connect(
+    user='aws_db_admin',
+    password=mysql_swi.password,
+    host=endpoint['Address'],
+    port=endpoint['Port'],
+    database='information_schema'
+)
+
+cursor = mysql_cnx.cursor()
+cursor.execute("SELECT DISTINCT(table_schema) FROM TABLES WHERE table_schema NOT IN ('information_schema', 'innodb', 'mysql', 'performance_schema', 'sys', 'tmp');")
+rows = cursor.fetchall()
+database_names = [r[0] for r in rows]
+logging.info("Database names: %s", database_names)
+normalised_db_names = [re.sub(r'_production$', '', db) for db in database_names]
+logging.info("Normalised database names: %s", normalised_db_names)
 
 # Launch an IPython shell so we can inspect the program state if we want.
 IPython.embed()
