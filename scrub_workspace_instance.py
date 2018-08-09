@@ -13,7 +13,7 @@ class ScrubWorkspaceInstance:
         self.snapshot_finder = snapshot_finder
         self.timeout = timeout
         self.instance_identifier = "scrubber-workspace-{0}".format(datetime.now().strftime("%Y%m%d%H%M%S"))
-        self.password = "{0:x}".format(random.getrandbits(64 * 4))
+        self.password = "{0:x}".format(random.getrandbits(41 * 4))
         self.instance = None
         self.source_instance = self.snapshot_finder.get_source_instance()
 
@@ -46,6 +46,7 @@ class ScrubWorkspaceInstance:
                 self.instance_identifier
             )
             self.__create_instance()
+            self.__apply_instance_modifications()
 
         return self.instance
 
@@ -97,17 +98,55 @@ class ScrubWorkspaceInstance:
             )
 
             if self.instance['DBInstanceStatus'] == 'available':
-                logging.info(
-                    "Applying security groups to %s: %s",
-                    self.instance_identifier,
-                    ', '.join(self.security_groups),
-                )
-                rds.modify_db_instance(
-                    DBInstanceIdentifier=self.instance_identifier,
-                    VpcSecurityGroupIds=self.security_groups,
-                )
                 return
             else:
                 time.sleep(5)
 
-        raise Exception("Timeout creating instance")
+        raise TimeoutError(
+            "Timed out creating RDS instance {0}".format(
+                self.instance_identifier
+            )
+        )
+
+    def __apply_instance_modifications(self):
+        rds = self.rds_client
+
+        logger.info(
+            "Applying modifications to %s: %s",
+            self.instance_identifier,
+            {
+                'VpcSecurityGroupIds': self.security_groups,
+                'MasterUserPassword': '****'
+            },
+        )
+
+        rds.modify_db_instance(
+            DBInstanceIdentifier=self.instance_identifier,
+            VpcSecurityGroupIds=self.security_groups,
+            MasterUserPassword=self.password,
+        )
+
+        max_end_time = time.time() + 60 * self.timeout
+        while time.time() <= max_end_time:
+            poll_response = rds.describe_db_instances(
+                DBInstanceIdentifier=self.instance_identifier
+            )
+            pending = list(
+                poll_response['DBInstances'][0]['PendingModifiedValues'].keys()
+            )
+
+            if len(pending) > 0:
+                logger.info(
+                    "Modifications to %s still pending: %s",
+                    self.instance_identifier,
+                    pending,
+                )
+                time.sleep(5)
+            else:
+                return
+
+        raise TimeoutError(
+            "Timed out applying changes to RDS instance {0}".format(
+                self.instance_identifier
+            )
+        )
