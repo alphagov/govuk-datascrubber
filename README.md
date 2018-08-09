@@ -20,3 +20,10 @@ imported into development environments.
 * AWS credentials (as per boto3)
 * Sharing details (AWS account(s), ...)
 
+## Developing
+
+```
+virtualenv --python=python3 .env
+source .env/bin/activate
+pip3 install -r requirements.txt
+```
