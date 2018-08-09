@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScrubWorkspaceInstance:
-    def __init__(self, snapshot_finder, timeout=90):
+    def __init__(self, snapshot_finder, timeout=90, security_groups=None):
         self.rds_client = boto3.client('rds')
         self.snapshot_finder = snapshot_finder
         self.timeout = timeout
@@ -16,6 +16,19 @@ class ScrubWorkspaceInstance:
         self.password = "{0:x}".format(random.getrandbits(64 * 4))
         self.instance = None
         self.source_instance = self.snapshot_finder.get_source_instance()
+
+        if type(security_groups) == str:
+            self.security_groups = [security_groups]
+
+        elif type(security_groups) == list:
+            self.security_groups = security_groups
+
+        else:
+            self.security_groups = [
+                sg['VpcSecurityGroupId'] for sg
+                in self.source_instance['VpcSecurityGroups']
+                if sg['Status'] == 'active'
+            ]
 
         logger.info(
             "Initialised scrub workspace instance, DBInstanceIdentifier: %s",
@@ -84,6 +97,15 @@ class ScrubWorkspaceInstance:
             )
 
             if self.instance['DBInstanceStatus'] == 'available':
+                logging.info(
+                    "Applying security groups to %s: %s",
+                    self.instance_identifier,
+                    ', '.join(self.security_groups),
+                )
+                rds.modify_db_instance(
+                    DBInstanceIdentifier=self.instance_identifier,
+                    VpcSecurityGroupIds=self.security_groups,
+                )
                 return
             else:
                 time.sleep(5)
