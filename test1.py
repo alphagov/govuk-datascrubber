@@ -2,10 +2,9 @@
 # Starts an interactive Python shell at the end.
 
 import datascrubber
+import datascrubber.mysql
 import logging
 import IPython
-import mysql.connector
-import re
 
 # Logs to stderr with the given format string, excluding DEBUG messages.
 # The great thing about using this logging library is that we automatically
@@ -25,24 +24,8 @@ postgresql_sf = datascrubber.RdsSnapshotFinder('postgresql')
 # Request a scrub workspace instance and exercise the code by calling get_endpoint().
 mysql_swi = datascrubber.ScrubWorkspaceInstance(mysql_sf)
 endpoint = mysql_swi.get_endpoint()
-
-logging.info("Got a new endpoint: %s", endpoint)
-
-mysql_cnx = mysql.connector.connect(
-    user='aws_db_admin',
-    password=mysql_swi.password,
-    host=endpoint['Address'],
-    port=endpoint['Port'],
-    database='information_schema'
-)
-
-cursor = mysql_cnx.cursor()
-cursor.execute("SELECT DISTINCT(table_schema) FROM TABLES WHERE table_schema NOT IN ('information_schema', 'innodb', 'mysql', 'performance_schema', 'sys', 'tmp');")
-rows = cursor.fetchall()
-database_names = [r[0] for r in rows]
-logging.info("Database names: %s", database_names)
-normalised_db_names = [re.sub(r'_production$', '', db) for db in database_names]
-logging.info("Normalised database names: %s", normalised_db_names)
+mysql_scrubber = datascrubber.mysql.MysqlScrubber(mysql_swi)
+logging.info("Viable scrub tasks: %s", mysql_scrubber.get_viable_scrub_tasks())
 
 # Launch an IPython shell so we can inspect the program state if we want.
 IPython.embed()
