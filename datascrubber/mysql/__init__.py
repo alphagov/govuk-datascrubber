@@ -1,32 +1,21 @@
 import logging
 import mysql.connector
 import re
-import os
-import os.path
 
 logger = logging.getLogger(__name__)
 
 
 class MysqlScrubber:
-    def __init__(self, libdir, workspace, db_suffix='_production'):
-        self.libdir = libdir
+    def __init__(self, workspace, db_suffix='_production'):
         self.workspace = workspace
         self.db_suffix = db_suffix
         self.supported_dbs = None
         self.connection = None
-        self.supported_dbs = None
+        self.supported_dbs = ['whitehall']
         self.available_dbs = None
 
     def get_supported_dbs(self):
-        if self.supported_dbs is None:
-            logger.info("Scanning %s for directories containing SQL scripts", self.libdir)
-
-            names = os.listdir(self.libdir)
-            dirs = [f for f in names if os.path.isdir(f)]
-            self.supported_dbs = dirs
-
-            logging.info("Found: %s", dirs)
-
+        # TODO make this dynamic
         return self.supported_dbs
 
     def get_connection(self):
@@ -35,7 +24,7 @@ class MysqlScrubber:
 
             logger.info("Connecting to MySQL: %s", {
                 "endpoint": "{0}:{1}".format(
-                    instance['Endpoint']['Host'],
+                    instance['Endpoint']['Address'],
                     instance['Endpoint']['Port']
                 ),
                 "user": instance['MasterUsername'],
@@ -44,7 +33,7 @@ class MysqlScrubber:
             self.connection = mysql.connector.connect(
                 user=instance['MasterUsername'],
                 password=self.workspace.password,
-                host=instance['Endpoint']['Host'],
+                host=instance['Endpoint']['Address'],
                 port=instance['Endpoint']['Port'],
                 database='information_schema'
             )
