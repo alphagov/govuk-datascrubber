@@ -25,7 +25,9 @@ postgresql_sf = datascrubber.RdsSnapshotFinder('postgresql')
 mysql_swi = datascrubber.ScrubWorkspaceInstance(mysql_sf)
 endpoint = mysql_swi.get_endpoint()
 mysql_scrubber = datascrubber.mysql.MysqlScrubber(mysql_swi)
-logging.info("Viable scrub tasks: %s", mysql_scrubber.get_viable_scrub_tasks())
+tasks = mysql_scrubber.get_viable_tasks()
+for task in tasks:
+    mysql_scrubber.run_task(task)
 
 # Launch an IPython shell so we can inspect the program state if we want.
 IPython.embed()
