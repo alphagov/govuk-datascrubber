@@ -2,72 +2,90 @@ import logging
 import mysql.connector
 import re
 
+from .whitehall import scrub_whitehall
+
 logger = logging.getLogger(__name__)
 
 
 class MysqlScrubber:
     def __init__(self, workspace, db_suffix='_production'):
+        self.scrub_functions = {
+            'whitehall': scrub_whitehall,
+        }
+        self.db_realnames = {}
+
         self.workspace = workspace
         self.db_suffix = db_suffix
-        self.supported_dbs = None
-        self.connection = None
-        self.supported_dbs = ['whitehall']
-        self.available_dbs = None
+        self.viable_tasks = None
 
-    def get_supported_dbs(self):
-        # TODO make this dynamic
-        return self.supported_dbs
+        self._discover_available_dbs()
 
-    def get_connection(self):
-        if self.connection is None:
-            instance = self.workspace.get_instance()
+    def _get_connection(self, dbname):
+        instance = self.workspace.get_instance()
 
-            logger.info("Connecting to MySQL: %s", {
-                "endpoint": "{0}:{1}".format(
-                    instance['Endpoint']['Address'],
-                    instance['Endpoint']['Port']
-                ),
-                "user": instance['MasterUsername'],
-            })
+        logger.info("Connecting to MySQL: %s", {
+            "endpoint": "{0}:{1}".format(
+                instance['Endpoint']['Address'],
+                instance['Endpoint']['Port']
+            ),
+            "user": instance['MasterUsername'],
+            "database": dbname,
+        })
 
-            self.connection = mysql.connector.connect(
-                user=instance['MasterUsername'],
-                password=self.workspace.password,
-                host=instance['Endpoint']['Address'],
-                port=instance['Endpoint']['Port'],
-                database='information_schema'
-            )
+        connection = mysql.connector.connect(
+            user=instance['MasterUsername'],
+            password=self.workspace.password,
+            host=instance['Endpoint']['Address'],
+            port=instance['Endpoint']['Port'],
+            database=dbname,
+        )
+        return connection
 
-        return self.connection
+    def _discover_available_dbs(self):
+        logger.info("Looking for available database in MySQL")
 
-    def get_available_dbs(self):
-        if self.available_dbs is None:
-            logger.info("Looking for available database in MySQL")
+        cnx = self._get_connection('information_schema')
+        cursor = cnx.cursor()
+        cursor.execute(
+            "SELECT DISTINCT(table_schema) "
+            "FROM TABLES "
+            "WHERE table_schema NOT IN ("
+            "    'information_schema',"
+            "    'innodb', "
+            "    'mysql', "
+            "    'performance_schema', "
+            "    'sys', "
+            "    'tmp'"
+            ");"
+        )
+        rows = cursor.fetchall()
+        available_dbs = [r[0] for r in rows]
+        logging.info("Databases found: %s", available_dbs)
 
-            cnx = self.get_connection()
-            cursor = cnx.cursor()
-            cursor.execute(
-                "SELECT DISTINCT(table_schema) "
-                "FROM TABLES "
-                "WHERE table_schema NOT IN ("
-                "    'information_schema',"
-                "    'innodb', "
-                "    'mysql', "
-                "    'performance_schema', "
-                "    'sys', "
-                "    'tmp'"
-                ");"
-            )
-            rows = cursor.fetchall()
-            database_names = [r[0] for r in rows]
-            logging.info("Database names: %s", database_names)
-            self.available_dbs = database_names
-
-        return self.available_dbs
-
-    def get_normalised_available_dbs(self):
         r = re.compile('{0}$'.format(self.db_suffix))
-        return [r.sub('', db) for db in self.get_available_dbs()]
+        for database_name in available_dbs:
+            normalised_name = r.sub('', database_name)
+            self.db_realnames[normalised_name] = database_name
 
-    def get_viable_scrub_tasks(self):
-        return set(self.get_supported_dbs()) & set(self.get_normalised_available_dbs())
+    def get_viable_tasks(self):
+        if self.viable_tasks is None:
+            self.viable_tasks = list(
+                set(self.scrub_functions.keys()) &
+                set(self.db_realnames.keys())
+            )
+            logger.info("Viable scrub tasks: %s", self.viable_tasks)
+
+        return self.viable_tasks
+
+    def run_task(self, task):
+        if task not in self.get_viable_tasks():
+            logger.error(
+                "%s is not a viable scrub task for %s",
+                task, self.__class__
+            )
+            return
+
+        logger.info("Running scrub task: %s", task)
+        cnx = self._get_connection(self.db_realnames[task])
+        cursor = cnx.cursor()
+        return self.scrub_functions[task](cursor)
