@@ -21,7 +21,7 @@ def main():
         'mysql',
         hostname=args.source_mysql_hostname,
         source_instance_identifier=args.source_mysql_instance_identifier,
-        snapshot_identifier=args.source_mysql_snpashot_identifier,
+        snapshot_identifier=args.source_mysql_snapshot_identifier,
     )
 
     postgresql_snapshot_finder = datascrubber.RdsSnapshotFinder(
@@ -117,7 +117,7 @@ def parse_arguments():
         '--source-postgresql-snapshot-identifier',
         required=False,
         type=str,
-        default=os.environ.get('SOURCE_POSTGRESQL_SNAPSHOT', None),
+        default=os.environ.get('SOURCE_POSTGRESQL_SNAPSHOT_IDENTIFIER', None),
         help="Snapshot identifier to use for Postgres. Defaults to the most "
              "recent automatic snapshot for the source instance/cluster. If "
              "specified, supercedes --source-postgresql-hostname and "
