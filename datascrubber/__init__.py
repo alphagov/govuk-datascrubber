@@ -61,10 +61,6 @@ class ScrubWorkspaceInstance:
                 FinalDBSnapshotIdentifier=self.final_snapshot_identifier(),
             )
 
-    # TODO: Return a DSN suitable for configuring the MySQL or Postgres connector lib
-    def get_dsn(self):
-        return "todo"
-
     def __create_instance(self):
         rds = self.rds_client
         source_snapshot_id = self.snapshot_finder.get_snapshot_identifier()
