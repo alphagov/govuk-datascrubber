@@ -3,6 +3,7 @@
 
 import datascrubber
 import datascrubber.mysql
+import datascrubber.postgresql
 import logging
 import IPython
 
@@ -17,17 +18,22 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# Create snapshot finders for both mysql and postgresql
-mysql_sf = datascrubber.RdsSnapshotFinder('mysql')
-postgresql_sf = datascrubber.RdsSnapshotFinder('postgresql')
+mysql = datascrubber.mysql.MysqlScrubber(
+    datascrubber.ScrubWorkspaceInstance(
+        datascrubber.RdsSnapshotFinder('mysql')
+    )
+)
+postgresql = datascrubber.postgresql.PostgresqlScrubber(
+    datascrubber.ScrubWorkspaceInstance(
+        datascrubber.RdsSnapshotFinder('postgresql')
+    )
+)
 
-# Request a scrub workspace instance and exercise the code by calling get_endpoint().
-mysql_swi = datascrubber.ScrubWorkspaceInstance(mysql_sf)
-endpoint = mysql_swi.get_endpoint()
-mysql_scrubber = datascrubber.mysql.MysqlScrubber(mysql_swi)
-tasks = mysql_scrubber.get_viable_tasks()
-for task in tasks:
-    mysql_scrubber.run_task(task)
+for task in mysql.get_viable_tasks():
+    mysql.run_task(task)
+
+for task in postgresql.get_viable_tasks():
+    postgresql.run_task(task)
 
 # Launch an IPython shell so we can inspect the program state if we want.
 IPython.embed()
