@@ -98,7 +98,7 @@ class ScrubWorkspaceInstance:
             if self.instance['DBInstanceStatus'] == 'available':
                 return
             else:
-                time.sleep(5)
+                time.sleep(10)
 
         raise TimeoutError(
             "Timed out creating RDS instance {0}".format(
@@ -139,7 +139,7 @@ class ScrubWorkspaceInstance:
                     self.instance_identifier,
                     pending,
                 )
-                time.sleep(5)
+                time.sleep(10)
             else:
                 return
 
