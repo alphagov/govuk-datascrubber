@@ -169,7 +169,7 @@ class RdsSnapshotFinder:
         self.snapshot_identifier = snapshot_identifier
         self.rds_client = boto3.client('rds')
 
-        logger.info("Initialised RDS Snapshot Finder")
+        logger.info("Initialised RDS Snapshot Finder for {0}".format(dbms))
 
     def get_snapshot_identifier(self):
         if self.snapshot_identifier is None:
