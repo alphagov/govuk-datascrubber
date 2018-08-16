@@ -155,10 +155,6 @@ class ScrubWorkspaceInstance:
 
 
 class RdsSnapshotFinder:
-    hostname_defaults = {
-        'mysql': 'mysql-primary',
-        'postgresql': 'postgresql-primary'
-    }
     rds_domain = dns.name.from_text('rds.amazonaws.com.')
 
     def __init__(self, dbms, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
