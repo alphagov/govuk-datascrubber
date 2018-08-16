@@ -158,8 +158,8 @@ class RdsSnapshotFinder:
     rds_domain = dns.name.from_text('rds.amazonaws.com.')
 
     def __init__(self, dbms, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
-        if dbms not in self.hostname_defaults.keys():
-            raise Exception('dbms must be one of {0}'.format(', '.join(self.hostname_defaults.keys())))
+        if dbms not in ['mysql', 'postgresql']:
+            raise Exception('dbms must be one of mysql, postgresql')
 
         self.dbms = dbms
         self.hostname = hostname
