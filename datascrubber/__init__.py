@@ -93,7 +93,7 @@ class ScrubWorkspaceInstance:
             self.timeout,
         )
 
-        restore_response = rds.restore_db_instance_from_db_snapshot(
+        rds.restore_db_instance_from_db_snapshot(
             DBInstanceIdentifier=self.instance_identifier,
             DBSnapshotIdentifier=source_snapshot_id,
             DBSubnetGroupName=subnet_group_name,
@@ -104,14 +104,12 @@ class ScrubWorkspaceInstance:
                 }
             ]
         )
-        # TODO check for error
 
         max_end_time = time.time() + 60 * self.timeout
         while time.time() <= max_end_time:
             poll_response = rds.describe_db_instances(
                 DBInstanceIdentifier=self.instance_identifier
             )
-            # TODO check for error
             self.instance = poll_response['DBInstances'][0]
 
             logger.info(
@@ -200,7 +198,6 @@ class RdsSnapshotFinder:
             response = self.rds_client.describe_db_snapshots(
                 DBInstanceIdentifier=source_instance_id,
             )
-            # TODO check for error
 
             if len(response['DBSnapshots']) == 0:
                 raise Exception("No snapshots found")
@@ -239,7 +236,6 @@ class RdsSnapshotFinder:
                 logger.info("Discovering source RDS instance...")
 
                 rds_instances = self.rds_client.describe_db_instances()
-                # TODO: check error
 
                 logger.debug(
                     "Enumerated %d RDS instances",
