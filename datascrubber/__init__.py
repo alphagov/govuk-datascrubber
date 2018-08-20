@@ -67,18 +67,28 @@ class ScrubWorkspaceInstance:
 
         return self.instance
 
-    def cleanup(self):
+    def cleanup(self, create_final_snapshot=True):
         if self.instance is not None:
             rds = self.rds_client
-            logger.info(
-                "Deleting RDS instance %s and creating final snapshot %s",
-                self.instance_identifier,
-                self.final_snapshot_identifier,
-            )
-            rds.delete_db_instance(
-                DBInstanceIdentifier=self.instance_identifier,
-                FinalDBSnapshotIdentifier=self.final_snapshot_identifier,
-            )
+            if create_final_snapshot:
+                logger.info(
+                    "Deleting RDS instance %s and creating final snapshot %s",
+                    self.instance_identifier,
+                    self.final_snapshot_identifier,
+                )
+                rds.delete_db_instance(
+                    DBInstanceIdentifier=self.instance_identifier,
+                    FinalDBSnapshotIdentifier=self.final_snapshot_identifier,
+                )
+            else:
+                logger.info(
+                    "Deleting RDS instance %s without final snapshot",
+                    self.instance_identifier,
+                )
+                rds.delete_db_instance(
+                    DBInstanceIdentifier=self.instance_identifier,
+                    SkipFinalSnapshot=True,
+                )
 
     def __create_instance(self):
         rds = self.rds_client
