@@ -256,16 +256,14 @@ class RdsSnapshotFinder:
                         break
 
                 if self.source_instance is None:
-                    raise Exception("TODO: error text")
+                    raise Exception("Couldn't find an RDS instance matching endpoint address %s" % self.get_rds_endpoint_address())
             else:
                 logger.info("Looking up RDS instance %s ...", self.source_instance_identifier)
+                # An exception will be raised if the instance doesn't exist
                 rds_instances = self.rds_client.describe_db_instances(
                     DBInstanceIdentifier=self.source_instance_identifier
                 )
-                if len(rds_instances['DBInstances']) == 0:
-                    raise Exception("TODO: error text")
-                else:
-                    self.source_instance = rds_instances['DBInstances'][0]
+                self.source_instance = rds_instances['DBInstances'][0]
 
         return self.source_instance
 
@@ -284,15 +282,15 @@ class RdsSnapshotFinder:
         if self.rds_endpoint_address is None:
             logger.info("Discovering RDS endpoint address via DNS...")
 
-            try:
-                resolver = dns.resolver.Resolver()
-                resolution = resolver.query(self.get_hostname())
-                cname = resolution.canonical_name
-            except dns.resolver.NXDOMAIN:
-                raise Exception("TODO: error text")
+            resolver = dns.resolver.Resolver()
+            resolution = resolver.query(self.get_hostname())
+            cname = resolution.canonical_name
 
             if not cname.is_subdomain(self.rds_domain):
-                raise Exception("TODO: error text 2")
+                raise Exception("{0} is not a subdomain of RDS domain ({1})".format(
+                    cname.to_text().rstrip('.'),
+                    self.rds_domain
+                ))
 
             self.rds_endpoint_address = cname.to_text().rstrip('.')
             logger.info(
