@@ -60,7 +60,7 @@ class MysqlScrubber:
         )
         rows = cursor.fetchall()
         available_dbs = [r[0] for r in rows]
-        logging.info("Databases found: %s", available_dbs)
+        logger.info("Databases found: %s", available_dbs)
 
         r = re.compile('{0}$'.format(self.db_suffix))
         for database_name in available_dbs:
