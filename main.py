@@ -6,6 +6,7 @@ import logging.handlers
 import argparse
 import os
 import sys
+import threading
 
 DEFAULTS = {
     'source-mysql-hostname': 'mysql-primary',
@@ -17,34 +18,27 @@ def main():
     args = parse_arguments()
     configure_logging(args.log_mode, args.log_level)
 
-    mysql_snapshot_finder = datascrubber.RdsSnapshotFinder(
-        'mysql',
-        hostname=args.source_mysql_hostname,
-        source_instance_identifier=args.source_mysql_instance_identifier,
-        snapshot_identifier=args.source_mysql_snapshot_identifier,
+    thread = threading.Thread(
+        target=worker,
+        args=(
+            'mysql',
+            args.source_mysql_hostname,
+            args.source_mysql_instance_identifier,
+            args.source_mysql_snapshot_identifier,
+        )
     )
+    thread.start()
 
-    postgresql_snapshot_finder = datascrubber.RdsSnapshotFinder(
-        'postgresql',
-        hostname=args.source_postgresql_hostname,
-        source_instance_identifier=args.source_postgresql_instance_identifier,
-        snapshot_identifier=args.source_postgresql_snapshot_identifier,
+    thread = threading.Thread(
+        target=worker,
+        args=(
+            'postgresql',
+            args.source_postgresql_hostname,
+            args.source_postgresql_instance_identifier,
+            args.source_postgresql_snapshot_identifier,
+        )
     )
-
-    mysql_workspace = datascrubber.ScrubWorkspaceInstance(mysql_snapshot_finder)
-    mysql = datascrubber.mysql.MysqlScrubber(mysql_workspace)
-
-    postgresql_workspace = datascrubber.ScrubWorkspaceInstance(postgresql_snapshot_finder)
-    postgresql = datascrubber.postgresql.PostgresqlScrubber(postgresql_workspace)
-
-    for task in mysql.get_viable_tasks():
-        mysql.run_task(task)
-
-    for task in postgresql.get_viable_tasks():
-        postgresql.run_task(task)
-
-    mysql_workspace.cleanup()
-    postgresql_workspace.cleanup()
+    thread.start()
 
 
 def parse_arguments():
@@ -212,6 +206,32 @@ def configure_logging(mode, level_name):
 
     else:
         return log_config_syslog()
+
+
+def worker(dbms, hostname=None, instance=None, snapshot=None):
+    logger = logging.getLogger()
+    logger.info("Spawned new worker thread")
+
+    snapshot_finder = datascrubber.RdsSnapshotFinder(
+        dbms,
+        hostname=hostname,
+        source_instance_identifier=instance,
+        snapshot_identifier=snapshot,
+    )
+
+    workspace = datascrubber.ScrubWorkspaceInstance(snapshot_finder)
+
+    if dbms == 'mysql':
+        task_manager = datascrubber.mysql.MysqlScrubber(workspace)
+    elif dbms == 'postgresql':
+        task_manager = datascrubber.postgresql.PostgresqlScrubber(workspace)
+    else:
+        raise Exception("DBMS not supported: %s" % dbms)
+
+    for task in task_manager.get_viable_tasks():
+        task_manager.run_task(task)
+
+    workspace.cleanup()
 
 
 if __name__ == '__main__':
