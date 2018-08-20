@@ -31,19 +31,20 @@ def main():
         snapshot_identifier=args.source_postgresql_snapshot_identifier,
     )
 
-    mysql = datascrubber.mysql.MysqlScrubber(
-        datascrubber.ScrubWorkspaceInstance(mysql_snapshot_finder)
-    )
+    mysql_workspace = datascrubber.ScrubWorkspaceInstance(mysql_snapshot_finder)
+    mysql = datascrubber.mysql.MysqlScrubber(mysql_workspace)
 
-    postgresql = datascrubber.postgresql.PostgresqlScrubber(
-        datascrubber.ScrubWorkspaceInstance(postgresql_snapshot_finder)
-    )
+    postgresql_workspace = datascrubber.ScrubWorkspaceInstance(postgresql_snapshot_finder)
+    postgresql = datascrubber.postgresql.PostgresqlScrubber(postgresql_workspace)
 
     for task in mysql.get_viable_tasks():
         mysql.run_task(task)
 
     for task in postgresql.get_viable_tasks():
         postgresql.run_task(task)
+
+    mysql_workspace.cleanup()
+    postgresql_workspace.cleanup()
 
     # TODO:
     #  * Run mysql and postgresql in parallel to reduce total runtime
