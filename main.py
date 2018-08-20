@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 import threading
+import traceback
 
 DEFAULTS = {
     'source-mysql-hostname': 'mysql-primary',
@@ -246,12 +247,16 @@ def worker(dbms, hostname=None, instance=None, snapshot=None):
 
     except Exception as e:
         if workspace is None:
-            logger.critical("Worker encountered an unrecoverable error: %s", e)
+            logger.critical(
+                "Worker encountered an unrecoverable error: %s, traceback: %s", e,
+                traceback.format_tb(e.__traceback__)
+            )
         else:
             logger.critical(
                 "Worker encountered an unrecoverable error. Assuming the scrub "
                 "was unsuccessful; a final snapshot will not be generated, in case "
-                "sensitive data remains. The error was: %s", e
+                "sensitive data remains. The error was: %s, traceback: %s", e,
+                traceback.format_tb(e.__traceback__)
             )
             workspace.cleanup(create_final_snapshot=False)
 
