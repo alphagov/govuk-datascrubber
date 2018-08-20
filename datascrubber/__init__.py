@@ -4,6 +4,7 @@ import time
 import logging
 import dns.resolver
 import dns.name
+import hashlib
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -11,13 +12,27 @@ logger = logging.getLogger(__name__)
 
 class ScrubWorkspaceInstance:
     def __init__(self, snapshot_finder, timeout=90, security_groups=None):
+        timestamp = datetime.now()
+
         self.rds_client = boto3.client('rds')
         self.snapshot_finder = snapshot_finder
         self.timeout = timeout
-        self.instance_identifier = "scrubber-workspace-{0}".format(datetime.now().strftime("%Y%m%d%H%M%S"))
         self.password = "{0:x}".format(random.getrandbits(41 * 4))
-        self.instance = None
         self.source_instance = self.snapshot_finder.get_source_instance()
+
+        self.instance_identifier = "scrubber-workspace-{0}-{1}-{2}".format(
+            self.source_instance['Engine'],
+            hashlib.sha256(
+                self.source_instance['DBInstanceIdentifier'].encode()
+            ).hexdigest()[0:8],
+            datetime.now().strftime("%Y%m%d%H%M%S")
+        )
+        self.final_snapshot_identifier = "scrubbed-{0}-{1}".format(
+            self.source_instance['DBInstanceIdentifier'],
+            timestamp.strftime("%Y-%m-%d-%H-%M")
+        )
+
+        self.instance = None
 
         if type(security_groups) == str:
             self.security_groups = [security_groups]
@@ -57,8 +72,8 @@ class ScrubWorkspaceInstance:
             rds = self.rds_client
             logger.info("Deleting RDS instance %s", self.instance_identifier)
             rds.delete_db_instance(
-                DBInstanceIdentifier=self.instance_identifier(),
-                FinalDBSnapshotIdentifier=self.final_snapshot_identifier(),
+                DBInstanceIdentifier=self.instance_identifier,
+                FinalDBSnapshotIdentifier=self.final_snapshot_identifier,
             )
 
     def __create_instance(self):
