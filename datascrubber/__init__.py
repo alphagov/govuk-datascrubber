@@ -78,6 +78,12 @@ class ScrubWorkspaceInstance:
             DBInstanceIdentifier=self.instance_identifier,
             DBSnapshotIdentifier=source_snapshot_id,
             DBSubnetGroupName=subnet_group_name,
+            Tags=[
+                {
+                    'Key': 'scrubber',
+                    'Value': 'scrubber'
+                }
+            ]
         )
         # TODO check for error
 
