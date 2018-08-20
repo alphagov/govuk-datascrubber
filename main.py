@@ -46,13 +46,6 @@ def main():
     mysql_workspace.cleanup()
     postgresql_workspace.cleanup()
 
-    # TODO:
-    #  * Run mysql and postgresql in parallel to reduce total runtime
-    #  * dispose of workspaces and take final snapshots when done
-    #  * set permissions on snapshots
-    #  * emit Icinga passive check notification
-    #  * catch errors and handle appropriately
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
