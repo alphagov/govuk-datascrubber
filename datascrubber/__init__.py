@@ -70,7 +70,11 @@ class ScrubWorkspaceInstance:
     def cleanup(self):
         if self.instance is not None:
             rds = self.rds_client
-            logger.info("Deleting RDS instance %s", self.instance_identifier)
+            logger.info(
+                "Deleting RDS instance %s and creating final snapshot %s",
+                self.instance_identifier,
+                self.final_snapshot_identifier,
+            )
             rds.delete_db_instance(
                 DBInstanceIdentifier=self.instance_identifier,
                 FinalDBSnapshotIdentifier=self.final_snapshot_identifier,
