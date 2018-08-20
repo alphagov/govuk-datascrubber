@@ -212,26 +212,48 @@ def worker(dbms, hostname=None, instance=None, snapshot=None):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
 
-    snapshot_finder = datascrubber.RdsSnapshotFinder(
-        dbms,
-        hostname=hostname,
-        source_instance_identifier=instance,
-        snapshot_identifier=snapshot,
-    )
+    workspace = None
 
-    workspace = datascrubber.ScrubWorkspaceInstance(snapshot_finder)
+    try:
+        snapshot_finder = datascrubber.RdsSnapshotFinder(
+            dbms,
+            hostname=hostname,
+            source_instance_identifier=instance,
+            snapshot_identifier=snapshot,
+        )
 
-    if dbms == 'mysql':
-        task_manager = datascrubber.mysql.MysqlScrubber(workspace)
-    elif dbms == 'postgresql':
-        task_manager = datascrubber.postgresql.PostgresqlScrubber(workspace)
-    else:
-        raise Exception("DBMS not supported: %s" % dbms)
+        workspace = datascrubber.ScrubWorkspaceInstance(snapshot_finder)
 
-    for task in task_manager.get_viable_tasks():
-        task_manager.run_task(task)
+        if dbms == 'mysql':
+            task_manager = datascrubber.mysql.MysqlScrubber(workspace)
+        elif dbms == 'postgresql':
+            task_manager = datascrubber.postgresql.PostgresqlScrubber(workspace)
+        else:
+            raise Exception("DBMS not supported: %s" % dbms)
 
-    workspace.cleanup()
+        for task in task_manager.get_viable_tasks():
+            success = task_manager.run_task(task)
+            if not success:
+                logger.error(
+                    "Task %s failed. A final snapshot will not be generated, "
+                    "in case sensitive data remains.",
+                    task
+                )
+                workspace.cleanup(create_final_snapshot=False)
+                break
+
+        workspace.cleanup(create_final_snapshot=True)
+
+    except Exception as e:
+        if workspace is None:
+            logger.critical("Worker encountered an unrecoverable error: %s", e)
+        else:
+            logger.critical(
+                "Worker encountered an unrecoverable error. Assuming the scrub "
+                "was unsuccessful; a final snapshot will not be generated, in case "
+                "sensitive data remains. The error was: %s", e
+            )
+            workspace.cleanup(create_final_snapshot=False)
 
 
 if __name__ == '__main__':
