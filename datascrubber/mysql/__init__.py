@@ -83,9 +83,22 @@ class MysqlScrubber:
                 "%s is not a viable scrub task for %s",
                 task, self.__class__
             )
-            return
+            return False
 
         logger.info("Running scrub task: %s", task)
         cnx = self._get_connection(self.db_realnames[task])
         cursor = cnx.cursor()
-        return self.scrub_functions[task](cursor)
+        try:
+            self.scrub_functions[task](cursor)
+            cnx.commit()
+            cursor.close()
+            cnx.close()
+
+            return True
+        except Exception as e:
+            logger.error("Error running scrub task %s: %s", task, e)
+            cnx.rollback()
+            cursor.close()
+            cnx.close()
+
+            return False
