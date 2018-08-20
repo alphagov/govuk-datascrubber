@@ -187,7 +187,7 @@ class RdsSnapshotFinder:
             )
 
             response['DBSnapshots'].sort(
-                key=lambda x: x['SnapshotCreateTime'],
+                key=lambda x: x.get('SnapshotCreateTime', 0),
                 reverse=True
             )
             most_recent = response['DBSnapshots'][0]
