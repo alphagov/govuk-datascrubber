@@ -80,6 +80,7 @@ class ScrubWorkspaceInstance:
                     DBInstanceIdentifier=self.instance_identifier,
                     FinalDBSnapshotIdentifier=self.final_snapshot_identifier,
                 )
+                self.__wait_for_final_snapshot()
             else:
                 logger.info(
                     "Deleting RDS instance %s without final snapshot",
@@ -181,6 +182,37 @@ class ScrubWorkspaceInstance:
                 self.instance_identifier
             )
         )
+
+    def __wait_for_final_snapshot(self):
+        rds = self.rds_client
+
+        max_end_time = time.time() + 60 * self.timeout
+        while time.time() <= max_end_time:
+            try:
+                logger.info(
+                    "Waiting for snapshot %s to become available. Timeout: %s minutes",
+                    self.final_snapshot_identifier,
+                    self.timeout,
+                )
+
+                poll_response = rds.describe_db_snapshots(
+                    DBSnapshotIdentifier=self.final_snapshot_identifier
+                )
+
+                if poll_response.get('Status', '') == 'available':
+                    logger.info(
+                        "Snapshot %s is now available",
+                        self.final_snapshot_identifier
+                    )
+                    return
+
+                else:
+                    time.sleep(10)
+            except Exception as e:
+                if e.response['Error']['Code'] == 'DBSnapshotNotFound':
+                    time.sleep(10)
+                else:
+                    raise(e)
 
 
 class RdsSnapshotFinder:
