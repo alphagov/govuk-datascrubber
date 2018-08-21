@@ -33,6 +33,7 @@ class ScrubWorkspaceInstance:
         )
 
         self.instance = None
+        self.deleted = False
 
         if type(security_groups) == str:
             self.security_groups = [security_groups]
@@ -68,7 +69,7 @@ class ScrubWorkspaceInstance:
         return self.instance
 
     def cleanup(self, create_final_snapshot=True):
-        if self.instance is not None:
+        if self.instance is not None and not self.deleted:
             rds = self.rds_client
             if create_final_snapshot:
                 logger.info(
@@ -80,6 +81,7 @@ class ScrubWorkspaceInstance:
                     DBInstanceIdentifier=self.instance_identifier,
                     FinalDBSnapshotIdentifier=self.final_snapshot_identifier,
                 )
+                self.deleted = True
                 self.__wait_for_final_snapshot()
             else:
                 logger.info(
@@ -90,6 +92,7 @@ class ScrubWorkspaceInstance:
                     DBInstanceIdentifier=self.instance_identifier,
                     SkipFinalSnapshot=True,
                 )
+                self.deleted = True
 
     def __create_instance(self):
         rds = self.rds_client

@@ -240,6 +240,7 @@ def worker(dbms, hostname=None, instance=None, snapshot=None):
         else:
             raise Exception("DBMS not supported: %s" % dbms)
 
+        success = True
         for task in task_manager.get_viable_tasks():
             success = task_manager.run_task(task)
             if not success:
@@ -248,10 +249,9 @@ def worker(dbms, hostname=None, instance=None, snapshot=None):
                     "in case sensitive data remains.",
                     task
                 )
-                workspace.cleanup(create_final_snapshot=False)
                 break
 
-        workspace.cleanup(create_final_snapshot=True)
+        workspace.cleanup(create_final_snapshot=success)
 
     except Exception as e:
         if workspace is None:
