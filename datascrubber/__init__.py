@@ -202,7 +202,7 @@ class ScrubWorkspaceInstance:
                     DBSnapshotIdentifier=self.final_snapshot_identifier
                 )
 
-                if poll_response.get('Status', '') == 'available':
+                if poll_response['DBSnapshots'][0]['Status'] == 'available':
                     logger.info(
                         "Snapshot %s is now available",
                         self.final_snapshot_identifier
