@@ -27,6 +27,7 @@ def main():
             args.source_mysql_hostname,
             args.source_mysql_instance_identifier,
             args.source_mysql_snapshot_identifier,
+            args.share_with,
         )
     )
     thread.start()
@@ -38,6 +39,7 @@ def main():
             args.source_postgresql_hostname,
             args.source_postgresql_instance_identifier,
             args.source_postgresql_snapshot_identifier,
+            args.share_with,
         )
     )
     thread.start()
@@ -155,7 +157,7 @@ def parse_arguments():
         type=str,
         default=os.environ.get('SHARE_WITH'),
         nargs='+',
-        help="ARNs to share scrubbed snapshots with",
+        help="AWS account IDs to share scrubbed snapshots with",
     )
 
     parser.add_argument(
@@ -210,13 +212,14 @@ def configure_logging(mode, level_name):
         return log_config_syslog()
 
 
-def worker(dbms, hostname=None, instance=None, snapshot=None):
+def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
 
     # We need a boto3 session per thread
     # https://boto3.readthedocs.io/en/latest/guide/resources.html#multithreading-multiprocessing
     session = boto3.session.Session()
+    rds_client = session.client('rds')
     workspace = None
 
     try:
@@ -252,6 +255,17 @@ def worker(dbms, hostname=None, instance=None, snapshot=None):
                 break
 
         workspace.cleanup(create_final_snapshot=success)
+        if success:
+            if target_accounts is not None and len(target_accounts) >= 1:
+                logger.info(
+                    "Sharing snapshot %s with AWS accounts %s",
+                    workspace.final_snapshot_identifier, target_accounts
+                )
+                rds_client.modify_db_snapshot_attribute(
+                    DBSnapshotIdentifier=workspace.final_snapshot_identifier,
+                    AttributeName='restore',
+                    ValuesToAdd=target_accounts,
+                )
 
     except Exception as e:
         if workspace is None:
