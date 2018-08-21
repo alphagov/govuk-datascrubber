@@ -180,7 +180,7 @@ def configure_logging(mode, level_name):
 
     def log_config_console():
         logging.basicConfig(
-            format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+            format='%(asctime)s | %(levelname)s | %(threadName)s | %(name)s | %(message)s',
             level=level,
         )
         return
@@ -189,7 +189,7 @@ def configure_logging(mode, level_name):
         logger = logging.getLogger()
         logger.setLevel(level)
         handler = logging.handlers.SysLogHandler(address='/dev/log')
-        formatter = logging.Formatter('%(name)s: %(levelname)s: %(message)s')
+        formatter = logging.Formatter('%(name)s | %(levelname)s | %(threadName)s | %(message)s')
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         return
