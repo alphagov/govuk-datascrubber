@@ -8,6 +8,7 @@ import os
 import sys
 import threading
 import traceback
+import boto3
 
 DEFAULTS = {
     'source-mysql-hostname': 'mysql-primary',
@@ -213,17 +214,24 @@ def worker(dbms, hostname=None, instance=None, snapshot=None):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
 
+    # We need a boto3 session per thread
+    # https://boto3.readthedocs.io/en/latest/guide/resources.html#multithreading-multiprocessing
+    session = boto3.session.Session()
     workspace = None
 
     try:
         snapshot_finder = datascrubber.RdsSnapshotFinder(
             dbms,
+            boto3_session=session,
             hostname=hostname,
             source_instance_identifier=instance,
             snapshot_identifier=snapshot,
         )
 
-        workspace = datascrubber.ScrubWorkspaceInstance(snapshot_finder)
+        workspace = datascrubber.ScrubWorkspaceInstance(
+            snapshot_finder,
+            session,
+        )
 
         if dbms == 'mysql':
             task_manager = datascrubber.mysql.MysqlScrubber(workspace)

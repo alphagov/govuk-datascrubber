@@ -1,4 +1,3 @@
-import boto3
 import random
 import time
 import logging
@@ -11,10 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class ScrubWorkspaceInstance:
-    def __init__(self, snapshot_finder, timeout=90, security_groups=None):
+    def __init__(self, snapshot_finder, boto3_session, timeout=90, security_groups=None):
         timestamp = datetime.now()
 
-        self.rds_client = boto3.client('rds')
+        self.boto3_session = boto3_session
+        self.rds_client = self.boto3_session.client('rds')
         self.snapshot_finder = snapshot_finder
         self.timeout = timeout
         self.password = "{0:x}".format(random.getrandbits(41 * 4))
@@ -218,17 +218,18 @@ class ScrubWorkspaceInstance:
 class RdsSnapshotFinder:
     rds_domain = dns.name.from_text('rds.amazonaws.com.')
 
-    def __init__(self, dbms, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
+    def __init__(self, dbms, boto3_session, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
         if dbms not in ['mysql', 'postgresql']:
             raise Exception('dbms must be one of mysql, postgresql')
 
         self.dbms = dbms
+        self.boto3_session = boto3_session
         self.hostname = hostname
         self.rds_endpoint_address = None
         self.source_instance = None
         self.source_instance_identifier = source_instance_identifier
         self.snapshot_identifier = snapshot_identifier
-        self.rds_client = boto3.client('rds')
+        self.rds_client = self.boto3_session.client('rds')
 
         logger.info("Initialised RDS Snapshot Finder for {0}".format(dbms))
 
