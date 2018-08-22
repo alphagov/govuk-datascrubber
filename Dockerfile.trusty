@@ -1,0 +1,22 @@
+FROM ubuntu:14.04
+
+RUN apt-get update && apt-get -y install \
+  python3 python3-dev python-virtualenv libpq-dev ruby ruby-dev
+RUN gem install --no-rdoc --no-ri fpm
+RUN adduser --gecos "" --disabled-password build
+USER build
+WORKDIR /home/build
+RUN mkdir target buildroot
+
+COPY --chown=build:build install setup.py requirements.txt buildroot/
+COPY --chown=build:build datascrubber/ buildroot/datascrubber/
+COPY --chown=build:build bin/ buildroot/bin/
+
+WORKDIR /home/build/buildroot
+RUN ./install /home/build/target
+
+RUN fpm -s dir -t deb -C /home/build/target -n govuk-datascrubber
+
+USER root
+RUN dpkg -i /home/build/buildroot/govuk-datascrubber_1.0_amd64.deb
+
