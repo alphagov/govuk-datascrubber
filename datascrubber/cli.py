@@ -1,6 +1,3 @@
-import datascrubber
-import datascrubber.mysql
-import datascrubber.postgresql
 import logging
 import logging.handlers
 import argparse
@@ -9,6 +6,9 @@ import sys
 import threading
 import traceback
 import boto3
+
+from . import ScrubWorkspaceInstance, RdsSnapshotFinder
+from .task_managers import Mysql, Postgresql
 
 DEFAULTS = {
     'source-mysql-hostname': 'mysql-primary',
@@ -223,7 +223,7 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]
     workspace = None
 
     try:
-        snapshot_finder = datascrubber.RdsSnapshotFinder(
+        snapshot_finder = RdsSnapshotFinder(
             dbms,
             boto3_session=session,
             hostname=hostname,
@@ -231,15 +231,15 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]
             snapshot_identifier=snapshot,
         )
 
-        workspace = datascrubber.ScrubWorkspaceInstance(
+        workspace = ScrubWorkspaceInstance(
             snapshot_finder,
             session,
         )
 
         if dbms == 'mysql':
-            task_manager = datascrubber.mysql.MysqlScrubber(workspace)
+            task_manager = task_managers.Mysql(workspace)
         elif dbms == 'postgresql':
-            task_manager = datascrubber.postgresql.PostgresqlScrubber(workspace)
+            task_manager = task_managers.Postgresql(workspace)
         else:
             raise Exception("DBMS not supported: %s" % dbms)
 
@@ -281,7 +281,3 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]
                 traceback.format_tb(e.__traceback__)
             )
             workspace.cleanup(create_final_snapshot=False)
-
-
-if __name__ == '__main__':
-    main()
