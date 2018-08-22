@@ -4,18 +4,15 @@ set -e
 
 target="$1"
 venv="${target}/opt/datascrubber"
+
 mkdir -p "$venv" "${target}/usr/bin"
 virtualenv --python=python3 "$venv"
 . "${venv}/bin/activate"
+
 pip install --upgrade pip 
 pip install -r requirements.txt
+pip install .
 
-# TODO replace this with a `pip install` once we have a setup.py
-cp -r datascrubber "${target}/opt/datascrubber/lib/python3.4/site-packages"
-
-# TODO move code that's currently in main.py into the package and make
-# /usr/bin/datascrubber a shim loader
-cp main.py "${target}/usr/bin/datascrubber"
-chmod +x "${target}/usr/bin/datascrubber"
-sed -i '1i #!/opt/datascrubber/bin/python3' "${target}/usr/bin/datascrubber"
-
+cp "bin/datascrubber" "${target}/usr/bin/datascrubber"
+chmod 0755 "${target}/usr/bin/datascrubber"
+sed -i -e '1d' -e '2i #!/opt/datascrubber/bin/python3' "${target}/usr/bin/datascrubber"
