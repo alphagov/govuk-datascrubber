@@ -10,39 +10,94 @@ import boto3
 from . import ScrubWorkspaceInstance, RdsSnapshotFinder
 from .task_managers import Mysql, Postgresql
 
-DEFAULTS = {
-    'source-mysql-hostname': 'mysql-primary',
-    'source-postgresql-hostname': 'postgresql-primary',
-}
-
 
 def main():
     args = parse_arguments()
     configure_logging(args.log_mode, args.log_level)
+    logger = logging.getLogger()
+    logger.info('Starting up')
 
-    thread = threading.Thread(
-        target=worker,
-        args=(
-            'mysql',
-            args.source_mysql_hostname,
-            args.source_mysql_instance_identifier,
-            args.source_mysql_snapshot_identifier,
-            args.share_with,
-        )
-    )
-    thread.start()
+    threads = []
 
-    thread = threading.Thread(
-        target=worker,
-        args=(
-            'postgresql',
-            args.source_postgresql_hostname,
-            args.source_postgresql_instance_identifier,
-            args.source_postgresql_snapshot_identifier,
-            args.share_with,
-        )
-    )
-    thread.start()
+    if args.mysql_snapshots is not None:
+        for snap_id in args.mysql_snapshots:
+            thread = threading.Thread(
+                target=worker,
+                kwargs=({
+                    'dbms': 'mysql',
+                    'snapshot': snap_id,
+                    'target_accounts': args.share_with,
+                }),
+            )
+            threads.append(thread)
+
+    elif args.mysql_instances is not None:
+        for instance_id in args.mysql_instances:
+            thread = threading.Thread(
+                target=worker,
+                kwargs=({
+                    'dbms': 'mysql',
+                    'instance': instance_id,
+                    'target_accounts': args.share_with,
+                })
+            )
+            threads.append(thread)
+
+    elif args.mysql_hosts is not None:
+        for host in args.mysql_hosts:
+            thread = threading.Thread(
+                target=worker,
+                kwargs=({
+                    'dbms': 'mysql',
+                    'hostname': host,
+                    'target_accounts': args.share_with,
+                })
+            )
+            threads.append(thread)
+
+    if args.postgresql_snapshots is not None:
+        for snap_id in args.postgresql_snapshots:
+            thread = threading.Thread(
+                target=worker,
+                kwargs=({
+                    'dbms': 'postgresql',
+                    'snapshot': snap_id,
+                    'target_accounts': args.share_with,
+                }),
+            )
+            threads.append(thread)
+
+    elif args.postgresql_instances is not None:
+        for instance_id in args.postgresql_instances:
+            thread = threading.Thread(
+                target=worker,
+                kwargs=({
+                    'dbms': 'postgresql',
+                    'instance': instance_id,
+                    'target_accounts': args.share_with,
+                })
+            )
+            threads.append(thread)
+
+    elif args.postgresql_hosts is not None:
+        for host in args.postgresql_hosts:
+            thread = threading.Thread(
+                target=worker,
+                kwargs=({
+                    'dbms': 'postgresql',
+                    'hostname': host,
+                    'target_accounts': args.share_with,
+                })
+            )
+            threads.append(thread)
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    logger.info('All tasks completed')
 
 
 def parse_arguments():
@@ -50,78 +105,68 @@ def parse_arguments():
         description='GOV.UK data scrubber'
     )
 
-    parser.add_argument(
-        '--source-mysql-hostname',
+    mysql_selection = parser.add_mutually_exclusive_group()
+    mysql_selection.add_argument(
+        '--mysql-hosts',
         required=False,
+        nargs='+',
         type=str,
-        default=os.environ.get(
-            'SOURCE_MYSQL_HOSTNAME',
-            DEFAULTS['source-mysql-hostname']
-        ),
-        help="Hostname of source MySQL instance/cluster (default: {0})".format(
-            DEFAULTS['source-mysql-hostname']
-        ),
+        help='Hostnames of source MySQL instances or clusters'
     )
 
-    parser.add_argument(
-        '--source-mysql-instance-identifier',
+    mysql_selection.add_argument(
+        '--mysql-instances',
         required=False,
+        nargs='+',
         type=str,
-        default=os.environ.get('SOURCE_MYSQL_INSTANCE_IDENTIFIER'),
-        help="RDS instance identifier of source MySQL RDS instance. "
-             "If specified, supercedes --source-mysql-hostname."
+        help="RDS instance identifiers of source MySQL RDS instances or "
+             "clusters. If specified, supercedes --mysql-hosts."
     )
 
-    parser.add_argument(
-        '--source-mysql-snapshot-identifier',
+    mysql_selection.add_argument(
+        '--mysql-snapshots',
         required=False,
         type=str,
-        default=os.environ.get('SOURCE_MYSQL_SNAPSHOT_IDENTIFIER'),
-        help="Snapshot identifier to use for MySQL. Defaults to the most "
-             "recent automatic snapshot for the source instance/cluster. If "
-             "specified, supercedes --source-mysql-hostname and "
-             "--source-mysql-snapshot-identifier."
+        nargs='+',
+        help="Snapshot identifiers to use for MySQL. Defaults to the most "
+             "recent automatic snapshot for each instance or cluster. If "
+             "specified, supercedes --mysql-hosts and --mysql-instances."
     )
 
-    parser.add_argument(
-        '--source-postgresql-hostname',
+    postgresql_selection = parser.add_mutually_exclusive_group()
+    postgresql_selection.add_argument(
+        '--postgresql-hosts',
         required=False,
+        nargs='+',
         type=str,
-        default=os.environ.get(
-            'SOURCE_POSTGRESQL_HOSTNAME',
-            DEFAULTS['source-postgresql-hostname']
-        ),
-        help="Hostname of source Postgres instance/cluster (default: {0})".format(
-            DEFAULTS['source-postgresql-hostname']
-        ),
+        help="Hostname of source Postgres instances or clusters"
     )
 
-    parser.add_argument(
-        '--source-postgresql-instance-identifier',
+    postgresql_selection.add_argument(
+        '--postgresql-instances',
         required=False,
+        nargs='+',
         type=str,
-        default=os.environ.get('SOURCE_POSTGRESQL_INSTANCE_IDENTIFIER'),
-        help="RDS instance identifier of source Postgres RDS instance. If "
-             "specified, supercedes --source-postgresql-hostname."
+        help="RDS instance identifiers of source Postgres RDS instances or "
+             "clusters. If specified, supercedes --postgresql-hosts."
     )
 
-    parser.add_argument(
-        '--source-postgresql-snapshot-identifier',
+    postgresql_selection.add_argument(
+        '--postgresql-snapshots',
         required=False,
+        nargs='+',
         type=str,
-        default=os.environ.get('SOURCE_POSTGRESQL_SNAPSHOT_IDENTIFIER', None),
-        help="Snapshot identifier to use for Postgres. Defaults to the most "
-             "recent automatic snapshot for the source instance/cluster. If "
-             "specified, supercedes --source-postgresql-hostname and "
-             "--source-postgresql-instance-identifier."
+        help="Snapshot identifiers to use for Postgres. Defaults to the most "
+             "recent automatic snapshot for each instance or cluster. If "
+             "specified, supercedes --postgresql-hosts and --postgresql-instances."
     )
 
     parser.add_argument(
         '--log-level',
         required=False,
         type=str,
-        default=os.environ.get('LOG_LEVEL', 'INFO'),
         choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'],
+        default='INFO',
         help="Log level (default: INFO)",
     )
 
@@ -129,43 +174,15 @@ def parse_arguments():
         '--log-mode',
         required=False,
         type=str,
-        default=os.environ.get('LOG_MODE'),
         choices=['console', 'syslog'],
-    )
-
-    task_selection = parser.add_mutually_exclusive_group()
-    task_selection.add_argument(
-        '--confine-to-tasks',
-        required=False,
-        type=str,
-        default=os.environ.get('CONFINE_TO_TASKS'),
-        nargs='+',
-        help="Only run the given tasks",
-    )
-    task_selection.add_argument(
-        '--skip-tasks',
-        required=False,
-        type=str,
-        default=os.environ.get('SKIP_TASKS'),
-        nargs='+',
-        help="Don't run the given tasks",
     )
 
     parser.add_argument(
         '--share-with',
         required=False,
         type=str,
-        default=os.environ.get('SHARE_WITH'),
         nargs='+',
         help="AWS account IDs to share scrubbed snapshots with",
-    )
-
-    parser.add_argument(
-        '--icinga-host',
-        required=False,
-        type=str,
-        default=os.environ.get('ICINGA_HOST'),
-        help="Icinga host to notify of result",
     )
 
     return parser.parse_args()
@@ -237,9 +254,9 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]
         )
 
         if dbms == 'mysql':
-            task_manager = task_managers.Mysql(workspace)
+            task_manager = Mysql(workspace)
         elif dbms == 'postgresql':
-            task_manager = task_managers.Postgresql(workspace)
+            task_manager = Postgresql(workspace)
         else:
             raise Exception("DBMS not supported: %s" % dbms)
 
