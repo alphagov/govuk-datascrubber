@@ -8,7 +8,7 @@ USER build
 WORKDIR /home/build
 RUN mkdir target buildroot
 
-COPY --chown=build:build install setup.py requirements.txt buildroot/
+COPY --chown=build:build Makefile setup.py requirements.txt buildroot/
 COPY --chown=build:build datascrubber/ buildroot/datascrubber/
 COPY --chown=build:build bin/ buildroot/bin/
 
