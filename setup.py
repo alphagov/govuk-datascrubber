@@ -1,8 +1,9 @@
 import setuptools
+import os
 
 setuptools.setup(
     name="datascrubber",
-    version="0.1",
+    version=os.environ.get('VERSION'),
     author="GOV.UK Reliability Engineering",
     author_email="reliability-engineering@digital.cabinet-office.gov.uk",
     description="Scrubs sensitive data from databases",
