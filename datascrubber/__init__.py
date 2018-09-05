@@ -20,12 +20,11 @@ class ScrubWorkspaceInstance:
         self.password = "{0:x}".format(random.getrandbits(41 * 4))
         self.source_instance = self.snapshot_finder.get_source_instance()
 
-        self.instance_identifier = "scrubber-workspace-{0}-{1}-{2}".format(
+        self.instance_identifier = "scrubber-{0}-{1}".format(
             self.source_instance['Engine'],
             hashlib.sha256(
                 self.source_instance['DBInstanceIdentifier'].encode()
-            ).hexdigest()[0:8],
-            datetime.now().strftime("%Y%m%d%H%M%S")
+            ).hexdigest()[0:12]
         )
         self.final_snapshot_identifier = "scrubbed-{0}-{1}".format(
             self.source_instance['DBInstanceIdentifier'],
