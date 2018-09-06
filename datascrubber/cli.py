@@ -208,7 +208,7 @@ def configure_logging(mode, level_name):
         logger = logging.getLogger()
         logger.setLevel(level)
         handler = logging.handlers.SysLogHandler(address='/dev/log')
-        formatter = logging.Formatter('%(name)s %(funcName) | %(levelname)s | %(threadName)s | %(message)s')
+        formatter = logging.Formatter('datascrubber: %(levelname)s: [%(threadName)s] [%(funcName)s] %(message)s')
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         return
