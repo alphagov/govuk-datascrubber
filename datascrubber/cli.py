@@ -222,9 +222,6 @@ def configure_logging(mode, level_name):
     if sys.stdout.isatty():
         return log_config_console()
 
-    elif os.environ.get('LAMBDA_TASK_ROOT') is None:
-        return log_config_console()
-
     else:
         return log_config_syslog()
 
