@@ -27,6 +27,7 @@ def main():
                     'dbms': 'mysql',
                     'snapshot': snap_id,
                     'target_accounts': args.share_with,
+                    'region': args.region,
                 }),
             )
             threads.append(thread)
@@ -39,6 +40,7 @@ def main():
                     'dbms': 'mysql',
                     'instance': instance_id,
                     'target_accounts': args.share_with,
+                    'region': args.region,
                 })
             )
             threads.append(thread)
@@ -51,6 +53,7 @@ def main():
                     'dbms': 'mysql',
                     'hostname': host,
                     'target_accounts': args.share_with,
+                    'region': args.region,
                 })
             )
             threads.append(thread)
@@ -63,6 +66,7 @@ def main():
                     'dbms': 'postgresql',
                     'snapshot': snap_id,
                     'target_accounts': args.share_with,
+                    'region': args.region,
                 }),
             )
             threads.append(thread)
@@ -75,6 +79,7 @@ def main():
                     'dbms': 'postgresql',
                     'instance': instance_id,
                     'target_accounts': args.share_with,
+                    'region': args.region,
                 })
             )
             threads.append(thread)
@@ -87,6 +92,7 @@ def main():
                     'dbms': 'postgresql',
                     'hostname': host,
                     'target_accounts': args.share_with,
+                    'region': args.region,
                 })
             )
             threads.append(thread)
@@ -185,6 +191,13 @@ def parse_arguments():
         help="AWS account IDs to share scrubbed snapshots with",
     )
 
+    parser.add_argument(
+        '--region',
+        required=False,
+        type=str,
+        help="AWS region"
+    )
+
     return parser.parse_args()
 
 
@@ -226,7 +239,7 @@ def configure_logging(mode, level_name):
         return log_config_syslog()
 
 
-def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]):
+def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[]):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
     workspace = None
@@ -234,7 +247,7 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]
     try:
         # We need a boto3 session per thread
         # https://boto3.readthedocs.io/en/latest/guide/resources.html#multithreading-multiprocessing
-        session = boto3.session.Session()
+        session = boto3.session.Session(region_name=region)
         rds_client = session.client('rds')
 
         snapshot_finder = RdsSnapshotFinder(
