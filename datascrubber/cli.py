@@ -229,14 +229,14 @@ def configure_logging(mode, level_name):
 def worker(dbms, hostname=None, instance=None, snapshot=None, target_accounts=[]):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
-
-    # We need a boto3 session per thread
-    # https://boto3.readthedocs.io/en/latest/guide/resources.html#multithreading-multiprocessing
-    session = boto3.session.Session()
-    rds_client = session.client('rds')
     workspace = None
 
     try:
+        # We need a boto3 session per thread
+        # https://boto3.readthedocs.io/en/latest/guide/resources.html#multithreading-multiprocessing
+        session = boto3.session.Session()
+        rds_client = session.client('rds')
+
         snapshot_finder = RdsSnapshotFinder(
             dbms,
             boto3_session=session,
