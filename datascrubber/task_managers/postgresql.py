@@ -1,6 +1,8 @@
 import logging
 import psycopg2
 import re
+import socket
+import subprocess
 
 import datascrubber.tasks
 
@@ -78,18 +80,19 @@ class Postgresql:
 
     def run_task(self, task):
         if task not in self.get_viable_tasks():
-            logger.error(
-                "%s is not a viable scrub task for %s",
+            err = "{0} is not a viable scrub task for {1}".format(
                 task, self.__class__
             )
-            return False
+            logger.error(err)
+            return (False, err)
 
         logger.info("Running scrub task: %s", task)
         cnx = self._get_connection(self.db_realnames[task])
         cursor = cnx.cursor()
         try:
             self.scrub_functions[task](cursor)
-            return True
+            return (True, None)
+
         except Exception as e:
             logger.error("Error running scrub task %s: %s", task, e)
-            return False
+            return (False, e)

@@ -1,11 +1,12 @@
 import logging
 import logging.handlers
 import argparse
-import os
+import subprocess
 import sys
 import threading
 import traceback
 import boto3
+import socket
 
 from . import ScrubWorkspaceInstance, RdsSnapshotFinder
 from .task_managers import Mysql, Postgresql
@@ -29,6 +30,7 @@ def main():
                     'target_accounts': args.share_with,
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
+                    'icinga_host': args.icinga_host,
                 }),
             )
             threads.append(thread)
@@ -43,6 +45,7 @@ def main():
                     'target_accounts': args.share_with,
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
+                    'icinga_host': args.icinga_host,
                 })
             )
             threads.append(thread)
@@ -57,6 +60,7 @@ def main():
                     'target_accounts': args.share_with,
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
+                    'icinga_host': args.icinga_host,
                 })
             )
             threads.append(thread)
@@ -71,6 +75,7 @@ def main():
                     'target_accounts': args.share_with,
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
+                    'icinga_host': args.icinga_host,
                 }),
             )
             threads.append(thread)
@@ -85,6 +90,7 @@ def main():
                     'target_accounts': args.share_with,
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
+                    'icinga_host': args.icinga_host,
                 })
             )
             threads.append(thread)
@@ -99,6 +105,7 @@ def main():
                     'target_accounts': args.share_with,
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
+                    'icinga_host': args.icinga_host,
                 })
             )
             threads.append(thread)
@@ -212,6 +219,13 @@ def parse_arguments():
         help="Number of snapshots to keep (default: 5)"
     )
 
+    parser.add_argument(
+        '--icinga-host',
+        required=False,
+        type=str,
+        help="Icinga host to notify with passive check results",
+    )
+
     return parser.parse_args()
 
 
@@ -253,7 +267,45 @@ def configure_logging(mode, level_name):
         return log_config_syslog()
 
 
-def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[], snapshot_retention=5):
+def submit_passive_icinga_check(task, status, icinga_host, info=None):
+    logger = logging.getLogger()
+
+    status_numeric = {
+        'OK': 0,
+        'WARNING': 1,
+        'CRITICAL': 2
+    }.get(status.upper(), 0)
+
+    if info is None:
+        info = status
+
+    message = "{0}\t{1}\t{2}\t{3}\n".format(
+        socket.gethostbyname(socket.gethostname()),
+        "GOV.UK data scrubber {0}".format(task),
+        status_numeric,
+        info,
+    )
+
+    send_nsca_command = ['send_nsca', '-H', icinga_host]
+    send_nsca = subprocess.Popen(
+        send_nsca_command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    output = send_nsca.communicate(message.encode('utf-8'))[0]
+
+    logger.info(
+        "Submitted check result to Icinga: %s",
+        {'command': send_nsca_command,
+         'message': message,
+         'exitcode': 0,
+         'output': output.decode('utf-8')}
+    )
+
+
+def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[], snapshot_retention=5, icinga_host=None):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
     workspace = None
@@ -286,14 +338,17 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, targe
 
         success = True
         for task in task_manager.get_viable_tasks():
-            success = task_manager.run_task(task)
+            (success, err) = task_manager.run_task(task)
             if not success:
                 logger.error(
                     "Task %s failed. A final snapshot will not be generated, "
                     "in case sensitive data remains.",
-                    task
+                    task, err
                 )
+                submit_passive_icinga_check(task, 'CRITICAL', icinga_host, err)
                 break
+
+            submit_passive_icinga_check(task, 'OK', icinga_host)
 
         workspace.cleanup(create_final_snapshot=success)
         if success:
