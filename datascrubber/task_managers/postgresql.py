@@ -40,6 +40,7 @@ class Postgresql:
             port=instance['Endpoint']['Port'],
             dbname=dbname,
         )
+        connection.autocommit = True
         return connection
 
     def _discover_available_dbs(self):
@@ -88,9 +89,7 @@ class Postgresql:
         cursor = cnx.cursor()
         try:
             self.scrub_functions[task](cursor)
-            cnx.commit()
             return True
         except Exception as e:
             logger.error("Error running scrub task %s: %s", task, e)
-            cnx.rollback()
             return False
