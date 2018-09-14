@@ -150,7 +150,8 @@ class ScrubWorkspaceInstance:
             self.instance_identifier,
             {
                 'VpcSecurityGroupIds': self.security_groups,
-                'MasterUserPassword': '****'
+                'MasterUserPassword': '****',
+                'BackupRetentionPeriod': 0,
             },
         )
 
@@ -158,6 +159,8 @@ class ScrubWorkspaceInstance:
             DBInstanceIdentifier=self.instance_identifier,
             VpcSecurityGroupIds=self.security_groups,
             MasterUserPassword=self.password,
+            BackupRetentionPeriod=0,
+            ApplyImmediately=True,
         )
 
         max_end_time = time.time() + 60 * self.timeout
