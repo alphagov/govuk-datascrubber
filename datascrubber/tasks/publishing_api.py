@@ -1,14 +1,36 @@
 import logging
-import os.path
 
 
 def scrub_publishing_api(cursor):
     logger = logging.getLogger('scrub_publishing_api')
-    sql_script = os.path.join(
-        os.path.dirname(__file__),
-        '..', 'sql', 'scrub_publishing_api.sql'
+
+    sql = (
+        "UPDATE events SET payload = NULL "
+        "WHERE action = 'PutContent' "
+        "AND content_id IN ("
+        "  SELECT content_id"
+        "  FROM documents"
+        "  INNER JOIN editions ON (documents.id = editions.document_id)"
+        "  INNER JOIN access_limits ON (editions.id = access_limits.edition_id)"
+        ")"
     )
-    logger.info("Loading SQL from %s", sql_script)
-    sql = open(sql_script, 'r').read()
-    logger.info("Executing SQL (%d lines) ...", len(sql.split('\n')))
+    logger.info(sql)
+    cursor.execute(sql)
+
+    sql = (
+        'DELETE FROM change_notes WHERE edition_id IN ('
+        '    SELECT edition_id'
+        '    FROM access_limits'
+        ')'
+    )
+    logger.info(sql)
+    cursor.execute(sql)
+
+    sql = (
+        'DELETE FROM editions WHERE id IN ('
+        '    SELECT edition_id'
+        '    FROM access_limits'
+        ')'
+    )
+    logger.info(sql)
     cursor.execute(sql)
