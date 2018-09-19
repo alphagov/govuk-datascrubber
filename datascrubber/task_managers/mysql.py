@@ -2,6 +2,7 @@ import logging
 import mysql.connector
 import re
 import subprocess
+import shlex
 
 import datascrubber.tasks
 
@@ -103,4 +104,48 @@ class Mysql:
             cnx.rollback()
             cursor.close()
             cnx.close()
+
             return (False, e)
+
+    def export_to_s3(self, database, s3_url_prefix):
+        endpoint = self.workspace.get_endpoint()
+
+        mysqldump_command = ' '.join(list(map(shlex.quote, [
+            'mysqldump',
+            '--host={0}'.format(endpoint['Address']),
+            '--user={0}'.format(self.workspace.get_username()),
+            '--password={0}'.format(self.workspace.get_password()),
+            self.db_realnames[database],
+        ])))
+
+        s3_url = '{0}/{1}.sql.gz'.format(s3_url_prefix, database)
+        s3_command = 'aws s3 cp - {0}'.format(shlex.quote(s3_url))
+
+        shell_command = '{0} | gzip | {1}'.format(mysqldump_command, s3_command)
+
+        logger.info("Copying %s to S3 as %s", database, s3_url)
+        logger.debug("mysqldump command: %s", mysqldump_command)
+        logger.debug("s3 command: %s", s3_command)
+        logger.debug("shell: %s", shell_command)
+
+        try:
+            output = subprocess.check_output(
+                shell_command,
+                shell=True,
+                stderr=subprocess.STDOUT,
+            )
+            logger.info(
+                "Finished copying %s to S3: %s", database,
+                {'command': shell_command,
+                 'exitcode': 0,
+                 'output': output.decode('utf-8')}
+            )
+
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "Error copying %s to S3: %s",
+                database,
+                {'command': shell_command,
+                 'exitcode': e.returncode,
+                 'output': e.output.decode('utf-8')}
+            )
