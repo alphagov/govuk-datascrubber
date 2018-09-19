@@ -2,6 +2,8 @@ import logging
 import psycopg2
 import re
 import subprocess
+import shlex
+import os
 
 import datascrubber.tasks
 
@@ -94,4 +96,53 @@ class Postgresql:
 
         except Exception as e:
             logger.error("Error running scrub task %s: %s", task, e)
+
             return (False, e)
+
+    def export_to_s3(self, database, s3_url_prefix):
+        endpoint = self.workspace.get_endpoint()
+
+        pgdump_command = ' '.join(list(map(shlex.quote, [
+            'pg_dump',
+            '--host={0}'.format(endpoint['Address']),
+            '--username={0}'.format(self.workspace.get_username()),
+            '--dbname={0}'.format(self.db_realnames[database]),
+        ])))
+
+        s3_url = '{0}/{1}.sql.gz'.format(s3_url_prefix, database)
+        s3_command = 'aws s3 cp - {0}'.format(shlex.quote(s3_url))
+
+        shell_command = '{0} | gzip | {1}'.format(pgdump_command, s3_command)
+
+        logger.info("Copying %s to S3 as %s", database, s3_url)
+        logger.debug("pg_dump command: %s", pgdump_command)
+        logger.debug("s3 command: %s", s3_command)
+        logger.debug("shell: %s", shell_command)
+
+        try:
+            # subprocess.check_output doesn't have an env parameter
+            # (but subprocess.Popen does - WHY!)
+            os.environ['PGPASSWORD'] = self.workspace.get_password()
+            output = subprocess.check_output(
+                shell_command,
+                shell=True,
+                stderr=subprocess.STDOUT,
+            )
+            logger.info(
+                "Finished copying %s to S3: %s", database,
+                {'command': shell_command,
+                 'exitcode': 0,
+                 'output': output.decode('utf-8')}
+            )
+
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "Error copying %s to S3: %s",
+                database,
+                {'command': shell_command,
+                 'exitcode': e.returncode,
+                 'output': e.output.decode('utf-8')}
+            )
+
+        finally:
+            os.environ.pop('PGPASSWORD')
