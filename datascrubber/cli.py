@@ -28,6 +28,7 @@ def main():
                     'snapshot': snap_id,
                     'target_accounts': args.share_with,
                     'region': args.region,
+                    'snapshot_retention': args.snapshot_retention,
                 }),
             )
             threads.append(thread)
@@ -41,6 +42,7 @@ def main():
                     'instance': instance_id,
                     'target_accounts': args.share_with,
                     'region': args.region,
+                    'snapshot_retention': args.snapshot_retention,
                 })
             )
             threads.append(thread)
@@ -54,6 +56,7 @@ def main():
                     'hostname': host,
                     'target_accounts': args.share_with,
                     'region': args.region,
+                    'snapshot_retention': args.snapshot_retention,
                 })
             )
             threads.append(thread)
@@ -67,6 +70,7 @@ def main():
                     'snapshot': snap_id,
                     'target_accounts': args.share_with,
                     'region': args.region,
+                    'snapshot_retention': args.snapshot_retention,
                 }),
             )
             threads.append(thread)
@@ -80,6 +84,7 @@ def main():
                     'instance': instance_id,
                     'target_accounts': args.share_with,
                     'region': args.region,
+                    'snapshot_retention': args.snapshot_retention,
                 })
             )
             threads.append(thread)
@@ -93,6 +98,7 @@ def main():
                     'hostname': host,
                     'target_accounts': args.share_with,
                     'region': args.region,
+                    'snapshot_retention': args.snapshot_retention,
                 })
             )
             threads.append(thread)
@@ -198,6 +204,14 @@ def parse_arguments():
         help="AWS region"
     )
 
+    parser.add_argument(
+        '--snapshot-retention',
+        required=False,
+        type=int,
+        default=5,
+        help="Number of snapshots to keep (default: 5)"
+    )
+
     return parser.parse_args()
 
 
@@ -239,7 +253,7 @@ def configure_logging(mode, level_name):
         return log_config_syslog()
 
 
-def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[]):
+def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[], snapshot_retention=5):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
     workspace = None
@@ -293,6 +307,9 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, targe
                     AttributeName='restore',
                     ValuesToAdd=target_accounts,
                 )
+
+            if snapshot_retention > 0:
+                workspace.delete_old_snapshots(snapshot_retention)
 
     except Exception as e:
         if workspace is None:

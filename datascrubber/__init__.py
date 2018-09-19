@@ -93,6 +93,42 @@ class ScrubWorkspaceInstance:
                 )
                 self.deleted = True
 
+    def delete_old_snapshots(self, number_to_keep):
+        logger.info(
+            "Looking for older snapshots of %s to clean up",
+            self.instance_identifier,
+        )
+
+        response = self.rds_client.describe_db_snapshots(IncludeShared=True)
+        snapshots = [
+            s for s in response['DBSnapshots'] if s['DBInstanceIdentifier'] == self.instance_identifier
+        ]
+        snapshots.sort(
+            key=lambda x: x.get('SnapshotCreateTime', 0),
+            reverse=True
+        )
+
+        logger.info(
+            "%d snapshots for %s exist in RDS",
+            len(snapshots),
+            self.instance_identifier,
+        )
+
+        snaps_to_delete = snapshots[number_to_keep:]
+
+        logger.info(
+            "%d older snapshots of %s identified for deletion (keeping %d)",
+            len(snaps_to_delete),
+            self.instance_identifier,
+            number_to_keep
+        )
+
+        for snap in snaps_to_delete:
+            logger.info("Deleting snapshot %s", snap['DBSnapshotIdentifier'])
+            self.rds_client.delete_db_snapshot(
+                DBSnapshotIdentifier=snap['DBSnapshotIdentifier'],
+            )
+
     def __create_instance(self):
         rds = self.rds_client
         source_snapshot_id = self.snapshot_finder.get_snapshot_identifier()
