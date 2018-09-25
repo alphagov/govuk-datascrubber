@@ -1,6 +1,8 @@
 import logging
 import mysql.connector
 import re
+import socket
+import subprocess
 
 import datascrubber.tasks
 
@@ -8,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Mysql:
-    def __init__(self, workspace, db_suffix='_production'):
+    def __init__(self, workspace, db_suffix='_production', icinga_host=None):
         self.scrub_functions = {
             'whitehall': datascrubber.tasks.scrub_whitehall,
         }
@@ -17,6 +19,7 @@ class Mysql:
         self.workspace = workspace
         self.db_suffix = db_suffix
         self.viable_tasks = None
+        self.icinga_host = icinga_host
 
         self._discover_available_dbs()
 
@@ -79,11 +82,11 @@ class Mysql:
 
     def run_task(self, task):
         if task not in self.get_viable_tasks():
-            logger.error(
-                "%s is not a viable scrub task for %s",
+            err = "{0} is not a viable scrub task for {1}".format(
                 task, self.__class__
             )
-            return False
+            logger.error(err)
+            return (False, err)
 
         logger.info("Running scrub task: %s", task)
         cnx = self._get_connection(self.db_realnames[task])
@@ -94,11 +97,11 @@ class Mysql:
             cursor.close()
             cnx.close()
 
-            return True
+            return (True, None)
+
         except Exception as e:
             logger.error("Error running scrub task %s: %s", task, e)
             cnx.rollback()
             cursor.close()
             cnx.close()
-
-            return False
+            return (False, e)
