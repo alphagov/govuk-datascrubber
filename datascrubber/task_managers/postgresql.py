@@ -1,7 +1,6 @@
 import logging
 import psycopg2
 import re
-import socket
 import subprocess
 
 import datascrubber.tasks
