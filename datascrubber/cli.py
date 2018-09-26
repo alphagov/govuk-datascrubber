@@ -345,10 +345,14 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, targe
                     "in case sensitive data remains.",
                     task, err
                 )
-                submit_passive_icinga_check(task, 'CRITICAL', icinga_host, err)
+
+                if icinga_host is not None:
+                    submit_passive_icinga_check(task, 'CRITICAL', icinga_host, err)
+
                 break
 
-            submit_passive_icinga_check(task, 'OK', icinga_host)
+            if icinga_host is not None:
+                submit_passive_icinga_check(task, 'OK', icinga_host)
 
         workspace.cleanup(create_final_snapshot=success)
         if success:
