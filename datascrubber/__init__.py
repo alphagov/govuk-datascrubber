@@ -264,6 +264,9 @@ class RdsSnapshotFinder:
         self.boto3_session = boto3_session
         self.rds_client = self.boto3_session.client('rds')
 
+        if (hostname is None and source_instance_identifier is None and snapshot_identifier is None):
+            raise Exception("One of hostname, source_instance_identifier, snapshot_identifier must be provided")
+
         self.hostname = hostname
         self.source_instance_identifier = source_instance_identifier
         self.snapshot_identifier = snapshot_identifier
