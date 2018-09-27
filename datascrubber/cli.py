@@ -317,7 +317,6 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, targe
         rds_client = session.client('rds')
 
         snapshot_finder = RdsSnapshotFinder(
-            dbms,
             boto3_session=session,
             hostname=hostname,
             source_instance_identifier=instance,

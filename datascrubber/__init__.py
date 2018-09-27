@@ -18,18 +18,19 @@ class ScrubWorkspaceInstance:
         self.snapshot_finder = snapshot_finder
         self.timeout = timeout
         self.password = "{0:x}".format(random.getrandbits(41 * 4))
-        self.source_instance = self.snapshot_finder.get_source_instance()
 
+        self.source_snapshot = self.snapshot_finder.get_snapshot()
         self.instance_identifier = "scrubber-{0}-{1}".format(
-            self.source_instance['Engine'],
+            self.source_snapshot['Engine'],
             hashlib.sha256(
-                self.source_instance['DBInstanceIdentifier'].encode()
+                self.source_snapshot['DBInstanceIdentifier'].encode()
             ).hexdigest()[0:12]
         )
         self.final_snapshot_identifier = "scrubbed-{0}-{1}".format(
-            self.source_instance['DBInstanceIdentifier'],
+            self.source_snapshot['DBInstanceIdentifier'],
             timestamp.strftime("%Y-%m-%d-%H-%M")
         )
+        self.source_instance = self.snapshot_finder.get_source_instance()
 
         self.instance = None
         self.deleted = False
@@ -259,20 +260,38 @@ class ScrubWorkspaceInstance:
 class RdsSnapshotFinder:
     rds_domain = dns.name.from_text('rds.amazonaws.com.')
 
-    def __init__(self, dbms, boto3_session, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
-        if dbms not in ['mysql', 'postgresql']:
-            raise Exception('dbms must be one of mysql, postgresql')
-
-        self.dbms = dbms
+    def __init__(self, boto3_session, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
         self.boto3_session = boto3_session
-        self.hostname = hostname
-        self.rds_endpoint_address = None
-        self.source_instance = None
-        self.source_instance_identifier = source_instance_identifier
-        self.snapshot_identifier = snapshot_identifier
         self.rds_client = self.boto3_session.client('rds')
 
-        logger.info("Initialised RDS Snapshot Finder for {0}".format(dbms))
+        if (hostname is None and source_instance_identifier is None and snapshot_identifier is None):
+            raise Exception("One of hostname, source_instance_identifier, snapshot_identifier must be provided")
+
+        self.hostname = hostname
+        self.source_instance_identifier = source_instance_identifier
+        self.snapshot_identifier = snapshot_identifier
+
+        self.rds_endpoint_address = None
+        self.source_instance = None
+        self.snapshot = None
+
+        logger.info("Initialised RDS Snapshot Finder")
+
+    def get_snapshot(self):
+        if self.snapshot is None:
+            snapshot_identifier = self.get_snapshot_identifier()
+
+            response = self.rds_client.describe_db_snapshots(
+                DBSnapshotIdentifier=snapshot_identifier,
+            )
+
+            if len(response['DBSnapshots']) == 0:
+                raise Exception("Snapshot {0} not found".format(snapshot_identifier))
+
+            self.snapshot = response['DBSnapshots'][0]
+            self.source_instance_identifier = self.snapshot['DBInstanceIdentifier']
+
+        return self.snapshot
 
     def get_snapshot_identifier(self):
         if self.snapshot_identifier is None:
@@ -353,12 +372,7 @@ class RdsSnapshotFinder:
 
     def get_hostname(self):
         if self.hostname is None:
-            logger.info(
-                "Using hostname default for %s: '%s'",
-                self.dbms,
-                self.hostname_defaults[self.dbms],
-            )
-            self.hostname = self.hostname_defaults[self.dbms]
+            raise Exception("No hostname provided")
 
         return self.hostname
 

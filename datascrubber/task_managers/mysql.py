@@ -1,7 +1,6 @@
 import logging
 import mysql.connector
 import re
-import socket
 import subprocess
 
 import datascrubber.tasks
