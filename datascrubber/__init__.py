@@ -260,14 +260,10 @@ class ScrubWorkspaceInstance:
 class RdsSnapshotFinder:
     rds_domain = dns.name.from_text('rds.amazonaws.com.')
 
-    def __init__(self, dbms, boto3_session, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
-        if dbms not in ['mysql', 'postgresql']:
-            raise Exception('dbms must be one of mysql, postgresql')
-
+    def __init__(self, boto3_session, hostname=None, source_instance_identifier=None, snapshot_identifier=None):
         self.boto3_session = boto3_session
         self.rds_client = self.boto3_session.client('rds')
 
-        self.dbms = dbms
         self.hostname = hostname
         self.source_instance_identifier = source_instance_identifier
         self.snapshot_identifier = snapshot_identifier
@@ -276,7 +272,7 @@ class RdsSnapshotFinder:
         self.source_instance = None
         self.snapshot = None
 
-        logger.info("Initialised RDS Snapshot Finder for {0}".format(dbms))
+        logger.info("Initialised RDS Snapshot Finder")
 
     def get_snapshot(self):
         if self.snapshot is None:
