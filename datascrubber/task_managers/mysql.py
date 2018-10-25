@@ -3,6 +3,7 @@ import mysql.connector
 import re
 import subprocess
 import shlex
+import time
 
 import datascrubber.tasks
 
@@ -118,7 +119,11 @@ class Mysql:
             self.db_realnames[database],
         ])))
 
-        s3_url = '{0}/{1}.sql.gz'.format(s3_url_prefix, database)
+        s3_url = '{0}/{1}-{2}.sql.gz'.format(
+            s3_url_prefix,
+            time.strftime("%Y-%m-%dT%H:%M:%S"),
+            self.db_realnames[database],
+        )
         s3_command = 'aws s3 cp - {0}'.format(shlex.quote(s3_url))
 
         shell_command = '{0} | gzip | {1}'.format(mysqldump_command, s3_command)
