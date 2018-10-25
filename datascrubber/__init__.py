@@ -57,6 +57,13 @@ class ScrubWorkspaceInstance:
         i = self.get_instance()
         return i['Endpoint']
 
+    def get_username(self):
+        i = self.get_instance()
+        return i['MasterUsername']
+
+    def get_password(self):
+        return self.password
+
     def get_instance(self):
         if self.instance is None:
             logger.info(

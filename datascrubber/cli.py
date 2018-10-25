@@ -31,6 +31,7 @@ def main():
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
                     'icinga_host': args.icinga_host,
+                    's3': args.s3_export,
                 }),
             )
             threads.append(thread)
@@ -46,6 +47,7 @@ def main():
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
                     'icinga_host': args.icinga_host,
+                    's3': args.s3_export,
                 })
             )
             threads.append(thread)
@@ -61,6 +63,7 @@ def main():
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
                     'icinga_host': args.icinga_host,
+                    's3': args.s3_export,
                 })
             )
             threads.append(thread)
@@ -76,6 +79,7 @@ def main():
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
                     'icinga_host': args.icinga_host,
+                    's3': args.s3_export,
                 }),
             )
             threads.append(thread)
@@ -91,6 +95,7 @@ def main():
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
                     'icinga_host': args.icinga_host,
+                    's3': args.s3_export,
                 })
             )
             threads.append(thread)
@@ -106,6 +111,7 @@ def main():
                     'region': args.region,
                     'snapshot_retention': args.snapshot_retention,
                     'icinga_host': args.icinga_host,
+                    's3': args.s3_export,
                 })
             )
             threads.append(thread)
@@ -226,6 +232,13 @@ def parse_arguments():
         help="Icinga host to notify with passive check results",
     )
 
+    parser.add_argument(
+        '--s3-export',
+        required=False,
+        type=str,
+        help="Dump scrubbed database and export to S3 at the specified URL prefix (e.g. s3://bucket/keyprefix)"
+    )
+
     return parser.parse_args()
 
 
@@ -305,7 +318,7 @@ def submit_passive_icinga_check(task, status, icinga_host, info=None):
     )
 
 
-def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[], snapshot_retention=5, icinga_host=None):
+def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, target_accounts=[], snapshot_retention=5, icinga_host=None, s3=None):
     logger = logging.getLogger()
     logger.info("Spawned new worker thread")
     workspace = None
@@ -352,6 +365,9 @@ def worker(dbms, hostname=None, instance=None, snapshot=None, region=None, targe
 
             if icinga_host is not None:
                 submit_passive_icinga_check(task, 'OK', icinga_host)
+
+            if s3 is not None:
+                task_manager.export_to_s3(task, s3)
 
         workspace.cleanup(create_final_snapshot=success)
         if success:
